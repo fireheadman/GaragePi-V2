@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+{% block body %}
+{% if session.logged_in %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-6 col-sm-push-6">
+
+            <!-- Door Status -->
+            <div class="panel panel-primary text-center">
+                <div class="panel-heading">Door Status</div>
+                <h3 id="status" class="text-uppercase">UNKNOWN</h3>
+            </div>
+
+            <!-- RPi/Garage Temperature -->
+            <div class="panel panel-primary text-center">
+                <div class="panel-heading">Pi Status</div>
+                <h5>CPU: <span id="cpuTempC">?</span>° C / <span id="cpuTempF">?</span>° F</h5>
+                <h5>GPU: <span id="gpuTempC">?</span>° C / <span id="gpuTempF">?</span>° F</h5>
+                <h5>Garage: <span id="garageTempC">?</span>° C / <span id="garageTempF">?</span>° F</h5>
+            </div>
+
+            <!-- Garage Webcam -->
+            <div class="panel panel-primary text-center">
+                <div class="panel-heading switch">Garage Camera 
+                    <input id="cmn-toggle-1" class="cmn-toggle cmn-toggle-round" type="checkbox">
+                    <label for="cmn-toggle-1"></label>
+                </div>
+		<!-- TIP: USE PORT FORWARDING AND USE DIFFERENT START/END PORTS INSTEAD OF SAME PORT -->
+                <div class="camera "><img width="100%" src=http://webcam03.fireheadman.com:8082 /></div>
+            </div>
+
+            <!-- Open / Close button -->
+            <div class="panel panel-primary text-center open_closed_btn">
+                <button type="button" id="openCloseButton" class="btn btn-primary btn-lg btn-block" style="vertical-align: middle" data-toggle="modal" data-target="#confirmModal">
+                    Open / Close Door
+                </button>
+            </div>
+        </div>
+        <div class="col-sm-6 col-sm-pull-6">
+
+            <!-- Modal Confirmation -->
+            <div class="modal fade" id="confirmModal" role="dialog">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal">&times;</button>
+                            <h4 class="modal-title">Door Switch</h4>
+                        </div>
+                        <div class="modal-body">
+                            <p>Confirm that you want to <span id="doorAction"></span> the door.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" id="triggerButton" class="btn btn-default btn-success pull-left" data-dismiss="modal"><span class="glyphicon glyphicon-ok"></span> Proceed</button>
+                            <button type="button" class="btn btn-default btn-danger" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span> Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+  var nIntervId;
+
+  $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+
+  function startStatusUpdate() {
+    updateOpenClosed();
+    nIntervId = setInterval(updateOpenClosed, 1500);
+  }
+
+  function updateOpenClosed() {
+    $.getJSON($SCRIPT_ROOT + "/query_status",
+              function(data) {
+                $("#status").text(data.is_open ? "OPEN": "CLOSED")
+                            .removeClass("text-danger text-success")
+                            .addClass(data.is_open ? "text-danger": "text-success");
+                $("#openCloseButton").html(data.is_open ? "Close Door": "Open Door");
+                $("#doorAction").html(data.is_open ? "close": "open");
+                $("#cpuTempC").html(data.cpu_temp_c.toFixed(1));
+                $("#gpuTempC").html(data.gpu_temp_c.toFixed(1));
+                $("#cpuTempF").html(data.cpu_temp_f.toFixed(1));
+                $("#gpuTempF").html(data.gpu_temp_f.toFixed(1));
+                $("#garageTempC").html(data.garage_temp_c.toFixed(1));
+                $("#garageTempF").html(data.garage_temp_f.toFixed(1));
+              })
+              .fail(function() {
+                  $("#status").text("UNKNOWN")
+                              .removeClass("text-warning text-success");
+                $("#cpuTempC").html("?");
+                $("#gpuTempC").html("?");
+                $("#cpuTempF").html("?");
+                $("#gpuTempF").html("?");
+                $("#garageTempC").html("?");
+                $("#garageTempF").html("?");
+              });
+  }
+
+  function stopStatusUpdate() {
+    clearInterval(nIntervId);
+  }
+
+  // Hookup our confirm button to trigger the door switch
+  $(function(){
+      $('#triggerButton').click(function(e){
+        e.preventDefault();
+        $.post("{{ url_for('trigger_openclose') }}");
+      });
+  });
+
+  // Begin the update query loop
+  startStatusUpdate();
+</script>
+{% endif %}
+{% endblock %}

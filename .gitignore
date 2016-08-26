@@ -1,0 +1,7 @@
+# Logs #
+########
+*.log
+*.log.*
+#
+# Password files #
+app.cfg
